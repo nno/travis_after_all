@@ -176,5 +176,5 @@ if __name__=='__main__':
     with open(".to_export_back", "w") as export_var:
         export_var.write("BUILD_LEADER=YES {0}={1}".format(BUILD_AGGREGATE_STATUS, os.environ[BUILD_AGGREGATE_STATUS]))
 
-except Exception as e:
-    log.fatal(e)
+
+
