@@ -130,6 +130,7 @@ def get_argument_parser():
     parser.add_argument('--travis_entry',
                         default='https://api.travis-ci.org')
     parser.add_argument('--is_master', action="store_true")
+    return parser
 
 
 
