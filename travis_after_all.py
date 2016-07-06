@@ -151,8 +151,8 @@ def get_job_number():
 
 
 def report(output_dict):
-    r='Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
-
+    r = 'Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
+    return r
 
 
 if __name__ == '__main__':
