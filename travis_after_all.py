@@ -30,16 +30,10 @@
 #    CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import os
-import sys
 import json
 import time
 import logging
 import argparse
-
-try:
-    from functools import reduce
-except ImportError:
-    pass
 
 try:
     import urllib.request as urllib2
@@ -49,44 +43,72 @@ except ImportError:
 
 
 class MatrixElement(object):
-
     def __init__(self, json_raw):
         self.is_finished = json_raw['finished_at'] is not None
         self.is_succeeded = json_raw['result'] == 0
         self.number = json_raw['number']
 
 
-def matrix_snapshot(travis_token, leader_job_number):
-    """
-    :return: Matrix List
-    """
-    headers = {'content-type': 'application/json', 'Authorization': 'token {}'.format(travis_token)}
-    req = urllib2.Request("{0}/builds/{1}".format(travis_entry, build_id), headers=headers)
-    response = urllib2.urlopen(req).read()
-    raw_json = json.loads(response.decode('utf-8'))
-    matrix_without_leader = [MatrixElement(job) for job in raw_json["matrix"]
-                                    if not is_leader(leader_job_number, job['number'])]
-    return matrix_without_leader
+
+class MatrixList(list):
+    @classmethod
+    def from_json(cls, raw_json, leader_job_number):
+        elems = [MatrixElement(job) for job in raw_json["matrix"]
+                 if not is_leader(leader_job_number, job['number'])]
+        return cls(elems)
+
+    def __str__(self):
+        elem_str = ','.join('%s=%s' % (e.number, e.is_succeeded)
+                            for e in self)
+        return '%s(%s)' % (self.__class__.__name__,
+                           elem_str)
+
+    @classmethod
+    def snapshot(cls, travis_token, leader_job_number):
+        headers = {'content-type': 'application/json',
+                   'Authorization': 'token {}'.format(travis_token)}
+        req = urllib2.Request("{0}/builds/{1}".format(travis_entry, build_id),
+                              headers=headers)
+        response = urllib2.urlopen(req).read()
+        raw_json = json.loads(response.decode('utf-8'))
+        return cls.from_json(raw_json, leader_job_number)
+
+    @property
+    def is_finished(self):
+        return all(e.is_finished for e in self)
+
+    @property
+    def is_succeeded(self):
+        return all(e.is_succeeeded for e in self)
+
+    def get_waiting_str(self):
+        return [','.join('%s' % e.number for e in self
+                         if not e.is_finished)]
+
+    @property
+    def status(self):
+        if self.is_finished:
+            if self.is_succeeded:
+                s = "others_succeeded"
+            else:
+                s = "others_failed"
+        else:
+            s = "others_busy"
+
+        return s
 
 
-def wait_others_to_finish(travis_token):
-    def others_finished():
-        """
-        Dumps others to finish
-        Leader cannot finish, it is working now
-        :return: tuple(True or False, List of not finished jobs)
-        """
-        snapshot = matrix_snapshot(travis_token)
-        finished = [job.is_finished for job in snapshot]
-        return all(finished), [job.number for job in snapshot
-                                        if not job.is_finished]
 
+def wait_others_to_finish(travis_token, leader_job_number):
     while True:
-        finished, waiting_list = others_finished()
-        if finished:
+        matrix_list = MatrixList.snapshot(travis_token, leader_job_number)
+        if matrix_list.is_finished:
             break
-        log.info("Leader waits for minions {0}...".format(waiting_list))  # just in case do not get "silence timeout"
+
+        log.info("Leader waits for minions: %s..." %
+                 matrix_list.get_waiting_str)
         time.sleep(polling_interval)
+
 
 
 def get_token(travis_entry, gh_token):
@@ -95,35 +117,47 @@ def get_token(travis_entry, gh_token):
     headers = {'content-type': 'application/json'}
 
     req = urllib2.Request("{0}/auth/github".format(travis_entry),
-                            json.dumps(data).encode('utf-8'), headers)
+                          json.dumps(data).encode('utf-8'), headers)
     response = urllib2.urlopen(req).read()
     travis_token = json.loads(response.decode('utf-8')).get('access_token')
 
     return travis_token
 
+
+
 def get_argument_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--travis_entry',
                         default='https://api.travis-ci.org')
-    parser.add_argument('--is_master',action="store_true")
+    parser.add_argument('--is_master', action="store_true")
+
 
 
 def current_job_is_leader(master_index):
-    job_number=os.getenv(TRAVIS_JOB_NUMBER)
+    job_number = os.getenv(TRAVIS_JOB_NUMBER)
     return is_leader(master_index, job_number)
 
 
+
 def is_leader(master_index, job_number):
-     return job_number.endswith('.%s' % master_index)
+    return job_number.endswith('.%s' % master_index)
+
+
 
 def get_job_number():
     return os.getenv(TRAVIS_JOB_NUMBER)
 
-if __name__=='__main__':
+
+
+def report(output_dict):
+    r='Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
+
+
+
+if __name__ == '__main__':
     log = logging.getLogger("travis.leader")
     log.addHandler(logging.StreamHandler())
     log.setLevel(logging.INFO)
-
 
     TRAVIS_JOB_NUMBER = 'TRAVIS_JOB_NUMBER'
     TRAVIS_BUILD_ID = 'TRAVIS_BUILD_ID'
@@ -131,15 +165,14 @@ if __name__=='__main__':
     GITHUB_TOKEN = 'GITHUB_TOKEN'
     BUILD_AGGREGATE_STATUS = 'BUILD_AGGREGATE_STATUS'
 
-
     build_id = os.getenv(TRAVIS_BUILD_ID)
     polling_interval = int(os.getenv(POLLING_INTERVAL, '5'))
     gh_token = os.getenv(GITHUB_TOKEN)
     job_number = os.getenv(TRAVIS_JOB_NUMBER)
 
-
-    parser=get_argument_parser()
-    args=parser.parse_args()
+    parser = get_argument_parser()
+    args = parser.parse_args()
+    is_master = args.is_master
 
     travis_entry = args.travis_entry
 
@@ -150,31 +183,19 @@ if __name__=='__main__':
     elif not is_master:
         # since python is subprocess, env variables are exported back via file
         log.info("This is a minion")
-        output_dict=dict(BUILD_MINION="YES")
+        output_dict = dict(BUILD_MINION="YES")
         report(output_dict)
         exit(0)
 
     log.info("This is a leader")
     travis_token = get_token(travis_entry, gh_token)
-    wait_others_to_finish(travis_token)
 
-    leader_job_number=get_job_number()
-    final_snapshot = matrix_snapshot(travis_token, leader_job_number)
-    log.info("Final Results: {0}".format([(e.number, e.is_succeeded)
-                                          for e in final_snapshot]))
+    leader_job_number = get_job_number()
+    wait_others_to_finish(travis_token, leader_job_number)
 
-    others_snapshot = [el for el in final_snapshot if not el.is_leader]
-    if reduce(lambda a, b: a and b, [e.is_succeeded for e in others_snapshot]):
-        os.environ[BUILD_AGGREGATE_STATUS] = "others_succeeded"
-    elif reduce(lambda a, b: a and b, [not e.is_succeeded for e in others_snapshot]):
-        log.error("Others Failed")
-        os.environ[BUILD_AGGREGATE_STATUS] = "others_failed"
-    else:
-        log.warn("Others Unknown")
-        os.environ[BUILD_AGGREGATE_STATUS] = "unknown"
-    # since python is subprocess, env variables are exported back via file
-    with open(".to_export_back", "w") as export_var:
-        export_var.write("BUILD_LEADER=YES {0}={1}".format(BUILD_AGGREGATE_STATUS, os.environ[BUILD_AGGREGATE_STATUS]))
+    final_snapshot = MatrixList.snapshot(travis_token, leader_job_number)
+    log.info("Final Results: %s" % final_snapshot)
 
-
-
+    output_dict = dict(BUILD_LEADER="YES",
+                       BUILD_AGGREGATE_STATUS=final_snapshot.status)
+    report(output_dict)
