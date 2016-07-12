@@ -65,8 +65,13 @@ class MatrixList(list):
 
     @classmethod
     def snapshot(cls, travis_token, leader_job_number):
-        headers = {'content-type': 'application/json',
-                   'Authorization': 'token {}'.format(travis_token)}
+        log.info('Taking snapshot')
+        headers = {'content-type': 'application/json'}
+        if travis_token is None:
+            log.info('No travis token')
+        else:
+            headers['Authorization'] = 'token {}'.format(travis_token)
+
         req = urllib2.Request("{0}/builds/{1}".format(travis_entry, build_id),
                               headers=headers)
         response = urllib2.urlopen(req).read()
@@ -112,7 +117,10 @@ def wait_others_to_finish(travis_token, leader_job_number):
 
 
 def get_token(travis_entry, gh_token):
-    assert gh_token, 'GITHUB_TOKEN is not set'
+    if gh_token is None:
+        log.info('GITHUB_TOKEN is not set, not using travis token')
+        return None
+
     data = {"github_token": gh_token}
     headers = {'content-type': 'application/json'}
 

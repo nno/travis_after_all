@@ -9,8 +9,9 @@ python:
 #  - 'pypy'
 #  - 'pypy3'
 env:
-  ARGS=--is_master
-  ARGS=
+  matrix:
+    ARGS=--is_master
+    ARGS=
 sudo: false # Use container-based infrastructure
 install: "pip install flake8"
 script:
