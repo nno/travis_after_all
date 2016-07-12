@@ -48,6 +48,11 @@ class MatrixElement(object):
         self.is_succeeded = json_raw['result'] == 0
         self.number = json_raw['number']
 
+    def __str__(self):
+        return '%s(F=%s,S=%s,N=%s)' % (self.__class__.__name__,
+                                       self.is_finished, self.is_succeeded,
+                                       self.number)
+
 
 
 class MatrixList(list):
@@ -111,13 +116,13 @@ def wait_others_to_finish(travis_token, leader_job_number):
             break
 
         log.info("Leader waits for minions: %s..." %
-                 matrix_list.get_waiting_str)
+                 matrix_list.get_waiting_str())
         time.sleep(polling_interval)
 
 
 
 def get_token(travis_entry, gh_token):
-    if gh_token is None or gh_token=="":
+    if gh_token is None or gh_token == "":
         log.info('GITHUB_TOKEN is not set, not using travis token')
         return None
 
@@ -161,6 +166,7 @@ def get_job_number():
 def report(output_dict):
     r = 'Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
     return r
+
 
 
 if __name__ == '__main__':

@@ -19,7 +19,6 @@ script:
   - flake8 --ignore E303
   - echo "Done"
 after_success:
-  - export GITHUB_TOKEN=${GITHUB_TOKEN_P1}${GITHUB_TOKEN_P2}
   - python travis_after_all.py ${ARGS}
   - export $(cat .to_export_back)
   - |
@@ -31,7 +30,6 @@ after_success:
         fi
       fi
 after_failure:
-  - export GITHUB_TOKEN=${GITHUB_TOKEN_P1}${GITHUB_TOKEN_P2}
   - python travis_after_all.py ${ARGS}
   - export $(cat .to_export_back)
   - |
