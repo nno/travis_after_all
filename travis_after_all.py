@@ -117,7 +117,7 @@ def wait_others_to_finish(travis_token, leader_job_number):
 
 
 def get_token(travis_entry, gh_token):
-    if gh_token is None:
+    if gh_token is None or gh_token=="":
         log.info('GITHUB_TOKEN is not set, not using travis token')
         return None
 

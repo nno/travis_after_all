@@ -15,7 +15,7 @@ env:
 sudo: false # Use container-based infrastructure
 install: "pip install flake8"
 script:
-  - echo "Doing something..."
+  - echo "Doing something... args=${ARGS}"
   - flake8 --ignore E303
   - echo "Done"
 after_success:
