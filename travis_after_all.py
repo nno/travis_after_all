@@ -81,6 +81,9 @@ class MatrixList(list):
                               headers=headers)
         response = urllib2.urlopen(req).read()
         raw_json = json.loads(response.decode('utf-8'))
+
+        log.info('Snapshot raw json: %s' % raw_json)
+
         return cls.from_json(raw_json, leader_job_number)
 
     @property
