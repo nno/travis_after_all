@@ -42,25 +42,46 @@ except ImportError:
 
 
 
-class MatrixElement(object):
-    def __init__(self, json_raw):
-        self.is_finished = json_raw['finished_at'] is not None
-        self.is_succeeded = json_raw['result'] == 0
-        self.number = json_raw['number']
+class JobStatus(object):
+    def __init__(self, number, is_finished, is_succeeded, is_leader):
+        self.is_finished = is_finished
+        self.is_succeeded = is_succeeded
+        self.number = number
+        self.is_leader = is_leader
 
     def __str__(self):
-        return '%s(F=%s,S=%s,N=%s)' % (self.__class__.__name__,
-                                       self.is_finished, self.is_succeeded,
-                                       self.number)
+        return '%s(F=%s,S=%s,N=%s,L=%s)' % (self.__class__.__name__,
+                                            self.is_finished,
+                                            self.is_succeeded,
+                                            self.number,
+                                            self.is_leader)
+
+    @classmethod
+    def from_matrix(cls, json_elem, leader_job_number):
+        number = json_elem['number']
+        is_finished = json_elem['finished_at'] is not None
+        is_succeeded = json_elem['result'] == 0
+        is_leader = number == leader_job_number
+
+        return cls(number, is_finished, is_succeeded, is_leader)
 
 
 
 class MatrixList(list):
     @classmethod
     def from_json(cls, raw_json, leader_job_number):
-        elems = [MatrixElement(job) for job in raw_json["matrix"]
-                 if not is_leader(leader_job_number, job['number'])]
-        return cls(elems)
+        matrix_elems = raw_json["matrix"]
+
+        list_instance = cls()
+        for matrix_elem in matrix_elems:
+            log.info('converting from: %s' % matrix_elem)
+
+            job_status = JobStatus.from_matrix(matrix_elem, leader_job_number)
+            log.info('status: %s' % job_status)
+
+            list_instance.append(job_status)
+
+        return list_instance
 
     def __str__(self):
         elem_str = ','.join('%s=%s' % (e.number, e.is_succeeded)
@@ -69,7 +90,7 @@ class MatrixList(list):
                            elem_str)
 
     @classmethod
-    def snapshot(cls, travis_token, leader_job_number):
+    def snapshot(cls, travis_entry, travis_token, leader_job_number):
         log.info('Taking snapshot')
         headers = {'content-type': 'application/json'}
         if travis_token is None:
@@ -77,10 +98,10 @@ class MatrixList(list):
         else:
             headers['Authorization'] = 'token {}'.format(travis_token)
 
-        req = urllib2.Request("{0}/builds/{1}".format(travis_entry, build_id),
-                              headers=headers)
-        response = urllib2.urlopen(req).read()
-        raw_json = json.loads(response.decode('utf-8'))
+        suffix = 'builds/%s' % build_id
+        data = None
+
+        raw_json = travis_get_json(travis_entry, suffix, data, headers=headers)
 
         log.info('Snapshot raw json: %s' % raw_json)
 
@@ -112,15 +133,29 @@ class MatrixList(list):
 
 
 
-def wait_others_to_finish(travis_token, leader_job_number):
+def wait_others_to_finish(travis_entry, travis_token, leader_job_number):
     while True:
-        matrix_list = MatrixList.snapshot(travis_token, leader_job_number)
-        if matrix_list.is_finished:
+        matrix_list = MatrixList.snapshot(travis_entry, travis_token,
+                                          leader_job_number)
+        if all(elem.is_finished or elem.is_leader
+               for elem in matrix_list):
             break
 
         log.info("Leader waits for minions: %s..." %
                  matrix_list.get_waiting_str())
         time.sleep(polling_interval)
+
+
+
+def travis_get_json(travis_entry, suffix, data, headers=None):
+    if headers is None:
+        headers = {'content-type': 'application/json'}
+
+    req = urllib2.Request("%s/%s" % (travis_entry, suffix),
+                          json.dumps(data).encode('utf-8'), headers)
+    response = urllib2.urlopen(req).read()
+    json_content = json.loads(response.decode('utf-8'))
+    return json_content
 
 
 
@@ -130,12 +165,9 @@ def get_token(travis_entry, gh_token):
         return None
 
     data = {"github_token": gh_token}
-    headers = {'content-type': 'application/json'}
+    json_content = travis_get_json(travis_entry, '/auth/github', data)
 
-    req = urllib2.Request("{0}/auth/github".format(travis_entry),
-                          json.dumps(data).encode('utf-8'), headers)
-    response = urllib2.urlopen(req).read()
-    travis_token = json.loads(response.decode('utf-8')).get('access_token')
+    travis_token = json_content.get('access_token')
 
     return travis_token
 
@@ -157,7 +189,8 @@ def current_job_is_leader(master_index):
 
 
 def is_leader(master_index, job_number):
-    return job_number.endswith('.%s' % master_index)
+    result = job_number.endswith('.%s' % master_index)
+    log.info('is_leader %s %s: %s' % (master_index, job_number, result))
 
 
 
@@ -209,9 +242,10 @@ if __name__ == '__main__':
     travis_token = get_token(travis_entry, gh_token)
 
     leader_job_number = get_job_number()
-    wait_others_to_finish(travis_token, leader_job_number)
+    wait_others_to_finish(travis_entry, travis_token, leader_job_number)
 
-    final_snapshot = MatrixList.snapshot(travis_token, leader_job_number)
+    final_snapshot = MatrixList.snapshot(travis_entry, travis_token,
+                                         leader_job_number)
     log.info("Final Results: %s" % final_snapshot)
 
     output_dict = dict(BUILD_LEADER="YES",
