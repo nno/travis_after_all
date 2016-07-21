@@ -58,6 +58,7 @@ class JobStatus(object):
 
     @classmethod
     def from_matrix(cls, json_elem, leader_job_number):
+        log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
         is_succeeded = json_elem['result'] == 0
