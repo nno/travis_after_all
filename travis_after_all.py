@@ -152,9 +152,15 @@ def travis_get_json(travis_entry, suffix, data, headers=None):
     if headers is None:
         headers = {'content-type': 'application/json'}
 
-    req = urllib2.Request("%s/%s" % (travis_entry, suffix),
+    url = "%s/%s" % (travis_entry, suffix)
+    log.info('Using URL %s' % url)
+    req = urllib2.Request(url,
                           json.dumps(data).encode('utf-8'), headers)
+    log.info('Request: %s [%s, %s]' % (req,
+                                       json.dumps(data).encode('utf-8'),
+                                       headers))
     response = urllib2.urlopen(req).read()
+    log.info('response: %s' % response)
     json_content = json.loads(response.decode('utf-8'))
     return json_content
 
