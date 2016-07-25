@@ -52,7 +52,7 @@ class JobStatus(object):
         self.is_leader = is_leader
 
     def __str__(self):
-        return '%s(%s,R=%s,N=%s,A=%s,L=%s)' % (self.__class__.__name__,
+        return '%s(%s,N=%s,N=%s,A=%s,L=%s)' % (self.__class__.__name__,
                                                self.number,
                                                self.is_finished,
                                                self.result,
@@ -234,8 +234,6 @@ def report(export_file, output_dict):
 
     with open(export_file, 'w') as f:
         f.write(content)
-
-    return r
 
 
 
