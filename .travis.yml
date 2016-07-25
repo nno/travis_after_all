@@ -19,26 +19,21 @@ script:
   - flake8 --ignore E303
   - echo "Done"
 after_success:
-  - python travis_after_all.py ${ARGS}
+  - ./travis_after_all.py ${ARGS}
   - export $(cat .to_export_back)
-  - |
-      if [ "$BUILD_LEADER" = "YES" ]; then
-        if [ "$BUILD_AGGREGATE_STATUS" = "others_succeeded" ]; then
-          echo "All jobs succeeded! PUBLISHING..."
+  - if [ "$BUILD_LEADER" = "YES" ]; then
+      if [ "$BUILD_AGGREGATE_STATUS" = "others_succeeded" ]; then
+          echo "All jobs succeeded! PUBLISHING...";
         else
-          echo "Some jobs failed"
-        fi
-      fi
+          echo "Some or all jobs failed";
+       fi
+    fi
+
 after_failure:
   - python travis_after_all.py ${ARGS}
   - export $(cat .to_export_back)
-  - |
-      if [ "$BUILD_LEADER" = "YES" ]; then
-        if [ "$BUILD_AGGREGATE_STATUS" = "others_failed" ]; then
-          echo "All jobs failed"
-        else
-          echo "Some jobs failed"
-        fi
-      fi
+  - if [ "$BUILD_LEADER" = "YES" ]; then
+       echo "Some or all jobs failed";
+    fi
 after_script:
   - echo leader=$BUILD_LEADER status=$BUILD_AGGREGATE_STATUS

@@ -72,7 +72,7 @@ class JobStatus(object):
 
     @classmethod
     def from_matrix(cls, json_elem, leader_job_number):
-        log.info('Parsing %s' % json_elem)
+        #log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
         result = json_elem['result']
@@ -204,6 +204,8 @@ def get_argument_parser():
     parser.add_argument('--travis_entry',
                         default='https://api.travis-ci.org')
     parser.add_argument('--is_master', action="store_true")
+    parser.add_argument('--export_file',
+                        default='.to_export_back')
     return parser
 
 
@@ -225,12 +227,14 @@ def get_job_number():
 
 
 
-def report(output_dict):
-    r = 'Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
+def report(export_file, output_dict):
+    r = 'Report: ' + (';\n'.join('%s=%s' % (k, v)
+                                 for k, v in output_dict.iteritems()))
     log.info(r)
 
-    for k, v in output_dict.iteritems():
-        os.environ[k] = v
+    with open(export_file, 'w') as f:
+        f.write(' '.join('%s=%s' % (k, v)
+                            for k, v in output_dict.iteritems())
 
     return r
 
@@ -281,4 +285,6 @@ if __name__ == '__main__':
 
     output_dict = dict(BUILD_LEADER="YES",
                        BUILD_AGGREGATE_STATUS=final_snapshot.status)
-    report(output_dict)
+
+    export_file = args.export_file
+    report(export_file, output_dict)
