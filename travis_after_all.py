@@ -52,17 +52,18 @@ class JobStatus(object):
         self.is_leader = is_leader
 
     def __str__(self):
-        return '%s(%s,R=%s,N=%s,A=%sL=%s)' % (self.__class__.__name__,
-                                              self.number,
-                                              self.is_finished,
-                                              self.result,
-                                              self.allow_failure,
-                                              self.is_leader)
+        return '%s(%s,R=%s,N=%s,A=%s,L=%s)' % (self.__class__.__name__,
+                                               self.number,
+                                               self.is_finished,
+                                               self.result,
+                                               self.allow_failure,
+                                               self.is_leader)
 
     @property
     def needs_waiting(self):
         return not (self.is_leader or self.is_finished or self.allow_failure)
 
+    @property
     def is_failure(self):
         if self.allow_failure or not self.is_finished:
             return False
@@ -126,6 +127,7 @@ class MatrixList(list):
     def needs_waiting(self):
         return any(job.needs_waiting for job in self)
 
+    @property
     def is_failure(self):
         return any(job.is_failure for job in self)
 
@@ -225,6 +227,11 @@ def get_job_number():
 
 def report(output_dict):
     r = 'Report: ' + (';\n'.join('%s=%s' for k, v in output_dict.iteritems()))
+    log.info(r)
+
+    for k, v in output_dict.iteritems():
+        os.environ[k] = v
+
     return r
 
 
