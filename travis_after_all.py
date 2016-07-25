@@ -74,7 +74,7 @@ class JobStatus(object):
         log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
-        result = json['result']
+        result = json_elem['result']
         allow_failure = json_elem['allow_failure']
         is_leader = number == leader_job_number
 
