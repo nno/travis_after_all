@@ -43,28 +43,43 @@ except ImportError:
 
 
 class JobStatus(object):
-    def __init__(self, number, is_finished, is_succeeded, is_leader):
+    def __init__(self, number, is_finished, result,
+                 allow_failure, is_leader):
         self.is_finished = is_finished
-        self.is_succeeded = is_succeeded
+        self.result = result
         self.number = number
+        self.allow_failure = allow_failure
         self.is_leader = is_leader
 
     def __str__(self):
-        return '%s(F=%s,S=%s,N=%s,L=%s)' % (self.__class__.__name__,
-                                            self.is_finished,
-                                            self.is_succeeded,
-                                            self.number,
-                                            self.is_leader)
+        return '%s(%s,R=%s,N=%s,A=%sL=%s)' % (self.__class__.__name__,
+                                              self.number,
+                                              self.is_finished,
+                                              self.result,
+                                              self.allow_failure,
+                                              self.is_leader)
+
+    @property
+    def needs_waiting(self):
+        return not (self.is_leader or self.is_finished or self.allow_failure)
+
+    def is_failure(self):
+        if self.allow_failure or not self.is_finished:
+            return false
+
+        return self.self.result != 0
 
     @classmethod
     def from_matrix(cls, json_elem, leader_job_number):
         log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
-        is_succeeded = json_elem['result'] == 0
+        result = json['result'] = json_elem['result']
+        allow_failure = json_elem['allow_failure']
         is_leader = number == leader_job_number
 
-        return cls(number, is_finished, is_succeeded, is_leader)
+        return cls(number, is_finished, result,
+                   allow_failure, is_leader)
 
 
 
@@ -75,20 +90,21 @@ class MatrixList(list):
 
         list_instance = cls()
         for matrix_elem in matrix_elems:
-            log.info('converting from: %s' % matrix_elem)
+            # log.info('converting from: %s' % matrix_elem)
 
             job_status = JobStatus.from_matrix(matrix_elem, leader_job_number)
-            log.info('status: %s' % job_status)
+            # log.info('status: %s' % job_status)
 
             list_instance.append(job_status)
 
         return list_instance
 
     def __str__(self):
-        elem_str = ','.join('%s=%s' % (e.number, e.is_succeeded)
-                            for e in self)
-        return '%s(%s)' % (self.__class__.__name__,
-                           elem_str)
+        elem_str = ','.join('%s' % job for job in self)
+        return '%s(W=%s,F=%s,E=%s)' % (self.__class__.__name__,
+                                       self.needs_waiting,
+                                       self.is_failure,
+                                       elem_str)
 
     @classmethod
     def snapshot(cls, travis_entry, travis_token, leader_job_number):
@@ -102,33 +118,30 @@ class MatrixList(list):
         suffix = 'builds/%s' % build_id
         data = None
 
-        raw_json = travis_get_json(travis_entry, suffix, data, headers=headers)
-
-        log.info('Snapshot raw json: %s' % raw_json)
+        raw_json = travis_get_json(travis_entry, suffix, data, headers)
 
         return cls.from_json(raw_json, leader_job_number)
 
     @property
-    def is_finished(self):
-        return all(e.is_finished for e in self)
+    def needs_waiting(self):
+        return any(job.needs_waiting for job in self)
+
+    def is_failure(self):
+        return any(job.is_failure for job in self)
 
     @property
-    def is_succeeded(self):
-        return all(e.is_succeeeded for e in self)
-
-    def get_waiting_str(self):
-        return [','.join('%s' % e.number for e in self
-                         if not e.is_finished)]
+    def is_success(self):
+        return all(e.is_success for e in self)
 
     @property
     def status(self):
-        if self.is_finished:
-            if self.is_succeeded:
-                s = "others_succeeded"
-            else:
-                s = "others_failed"
-        else:
+        if self.needs_waiting:
             s = "others_busy"
+        else:
+            if self.is_failure:
+                s = "others_failed"
+            else:
+                s = "others_succeeded"
 
         return s
 
@@ -142,8 +155,7 @@ def wait_others_to_finish(travis_entry, travis_token, leader_job_number):
                for elem in matrix_list):
             break
 
-        log.info("Leader waits for minions: %s..." %
-                 matrix_list.get_waiting_str())
+        log.info("Leader waits for minions: %s..." % matrix_list)
         time.sleep(polling_interval)
 
 
@@ -154,14 +166,14 @@ def travis_get_json(travis_entry, suffix, data, headers=None):
                    'User-Agent': 'Travis/1.0'}
 
     url = "%s/%s" % (travis_entry, suffix)
-    log.info('Using URL %s' % url)
+    # log.info('Using URL %s' % url)
 
     req = urllib2.Request(url, data, headers)
-    log.info('Request: %s [%s, %s]' % (req,
-                                       data,
-                                       headers))
+    # log.info('Request: %s [%s, %s]' % (req,
+    #                                   data,
+    #                                   headers))
     response = urllib2.urlopen(req).read()
-    log.info('response: %s' % response)
+    # log.info('response: %s' % response)
     json_content = json.loads(response.decode('utf-8'))
 
     return json_content
