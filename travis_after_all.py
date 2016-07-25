@@ -150,30 +150,35 @@ def wait_others_to_finish(travis_entry, travis_token, leader_job_number):
 
 def travis_get_json(travis_entry, suffix, data, headers=None):
     if headers is None:
-        headers = {'content-type': 'application/json'}
+        headers = {'content-type': 'application/json',
+                   'User-Agent': 'Travis/1.0'}
 
     url = "%s/%s" % (travis_entry, suffix)
     log.info('Using URL %s' % url)
-    req = urllib2.Request(url,
-                          json.dumps(data).encode('utf-8'), headers)
+
+    req = urllib2.Request(url, data, headers)
     log.info('Request: %s [%s, %s]' % (req,
-                                       json.dumps(data).encode('utf-8'),
+                                       data,
                                        headers))
     response = urllib2.urlopen(req).read()
     log.info('response: %s' % response)
     json_content = json.loads(response.decode('utf-8'))
+
     return json_content
 
 
 
-def get_token(travis_entry, gh_token):
+def get_travis_token(travis_entry, gh_token):
     if gh_token is None or gh_token == "":
         log.info('GITHUB_TOKEN is not set, not using travis token')
         return None
 
+    suffix = "/auth/github"
     data = {"github_token": gh_token}
-    json_content = travis_get_json(travis_entry, '/auth/github', data)
+    headers = {'content-type': 'application/json',
+               'User-Agent': 'Travis/1.0'}
 
+    json_content = travis_get_json(travis_entry, suffix, data, headers)
     travis_token = json_content.get('access_token')
 
     return travis_token
@@ -246,7 +251,7 @@ if __name__ == '__main__':
         exit(0)
 
     log.info("This is a leader")
-    travis_token = get_token(travis_entry, gh_token)
+    travis_token = get_travis_token(travis_entry, gh_token)
 
     leader_job_number = get_job_number()
     wait_others_to_finish(travis_entry, travis_token, leader_job_number)
