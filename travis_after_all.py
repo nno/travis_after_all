@@ -65,7 +65,7 @@ class JobStatus(object):
 
     def is_failure(self):
         if self.allow_failure or not self.is_finished:
-            return false
+            return False
 
         return self.self.result != 0
 
@@ -74,7 +74,7 @@ class JobStatus(object):
         log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
-        result = json['result'] = json_elem['result']
+        result = json['result']
         allow_failure = json_elem['allow_failure']
         is_leader = number == leader_job_number
 
