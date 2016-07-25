@@ -20,6 +20,7 @@ script:
   - echo "Done"
 after_success:
   - ./travis_after_all.py ${ARGS}
+  - cat .to_export_back
   - export $(cat .to_export_back)
   - if [ "$BUILD_LEADER" = "YES" ]; then
       if [ "$BUILD_AGGREGATE_STATUS" = "others_succeeded" ]; then
@@ -31,6 +32,7 @@ after_success:
 
 after_failure:
   - python travis_after_all.py ${ARGS}
+  - cat .to_export_back
   - export $(cat .to_export_back)
   - if [ "$BUILD_LEADER" = "YES" ]; then
        echo "Some or all jobs failed";

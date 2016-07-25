@@ -72,7 +72,7 @@ class JobStatus(object):
 
     @classmethod
     def from_matrix(cls, json_elem, leader_job_number):
-        #log.info('Parsing %s' % json_elem)
+        # log.info('Parsing %s' % json_elem)
         number = json_elem['number']
         is_finished = json_elem['finished_at'] is not None
         result = json_elem['result']
@@ -228,13 +228,12 @@ def get_job_number():
 
 
 def report(export_file, output_dict):
-    r = 'Report: ' + (';\n'.join('%s=%s' % (k, v)
-                                 for k, v in output_dict.iteritems()))
-    log.info(r)
+    content = ' '.join('%s=%s' % (k, v)
+                       for k, v in output_dict.iteritems())
+    log.info("variables: %s" % content)
 
     with open(export_file, 'w') as f:
-        f.write(' '.join('%s=%s' % (k, v)
-                            for k, v in output_dict.iteritems())
+        f.write(content)
 
     return r
 
