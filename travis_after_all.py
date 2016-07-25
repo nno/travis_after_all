@@ -68,7 +68,7 @@ class JobStatus(object):
         if self.allow_failure or not self.is_finished:
             return False
 
-        return self.self.result != 0
+        return self.result != 0
 
     @classmethod
     def from_matrix(cls, json_elem, leader_job_number):
