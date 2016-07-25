@@ -232,6 +232,7 @@ def report(export_file, output_dict):
                        for k, v in output_dict.iteritems())
     log.info("variables: %s" % content)
 
+    # since python is subprocess, env variables are exported back via file
     with open(export_file, 'w') as f:
         f.write(content)
 
@@ -264,10 +265,7 @@ if __name__ == '__main__':
         log.fatal("Don't use defining leader for build without matrix")
         exit(1)
     elif not is_master:
-        # since python is subprocess, env variables are exported back via file
         log.info("This is a minion")
-        output_dict = dict(BUILD_MINION="YES")
-        report(output_dict)
         exit(0)
 
     log.info("This is a leader")
