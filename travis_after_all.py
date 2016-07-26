@@ -204,6 +204,8 @@ def get_argument_parser():
                         default='https://api.travis-ci.org')
     parser.add_argument('--is_master', action="store_true")
     parser.add_argument('--master_number', type=int, default=0)
+    parser.add_argument('--poll', type=int, default=5,
+                        description='polling interval in seconds')
     parser.add_argument('--export_file',
                         default='.to_export_back')
     return parser
@@ -243,6 +245,9 @@ if __name__ == '__main__':
     log.addHandler(logging.StreamHandler())
     log.setLevel(logging.INFO)
 
+    parser = get_argument_parser()
+    args = parser.parse_args()
+
     TRAVIS_JOB_NUMBER = 'TRAVIS_JOB_NUMBER'
     TRAVIS_BUILD_ID = 'TRAVIS_BUILD_ID'
     POLLING_INTERVAL = 'LEADER_POLLING_INTERVAL'
@@ -250,12 +255,10 @@ if __name__ == '__main__':
     BUILD_AGGREGATE_STATUS = 'BUILD_AGGREGATE_STATUS'
 
     build_id = os.getenv(TRAVIS_BUILD_ID)
-    polling_interval = int(os.getenv(POLLING_INTERVAL, '5'))
+    polling_interval = os.getenv(POLLING_INTERVAL) or args.poll
     gh_token = os.getenv(GITHUB_TOKEN)
     job_number = os.getenv(TRAVIS_JOB_NUMBER, '')
 
-    parser = get_argument_parser()
-    args = parser.parse_args()
     is_master = args.is_master or \
                 job_number.endswith('.%s' % parser.master_number)
 
