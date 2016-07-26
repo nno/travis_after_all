@@ -259,8 +259,8 @@ if __name__ == '__main__':
     gh_token = os.getenv(GITHUB_TOKEN)
     job_number = os.getenv(TRAVIS_JOB_NUMBER, '')
 
-    is_master = args.is_master or \
-                job_number.endswith('.%s' % parser.master_number)
+    is_master = (args.is_master or
+                 job_number.endswith('.%s' % parser.master_number))
 
     travis_entry = args.travis_entry
 
