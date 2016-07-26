@@ -4,13 +4,16 @@
 #
 # Retrieved from https://github.com/dmakhno/travis_after_all
 #
+# Original code by Dmytro Makhno
+# Changes by Nikolaas N. Oosterhof
+#
 # The main goal of this script to have a single publish when a build has
-# several jobs. Currently the first job is a leader, meaning a node that will
-# do the publishing.
+# several jobs.
 #
 #    The MIT License (MIT)
 #
 #    Copyright (c) 2014 Dmytro Makhno
+#                  2016 Nikolaas N. Oosterhof
 #
 #    Permission is hereby granted, free of charge, to any person obtaining a copy of
 #    this software and associated documentation files (the "Software"), to deal in
@@ -132,10 +135,6 @@ class MatrixList(list):
         return any(job.is_failure for job in self)
 
     @property
-    def is_success(self):
-        return all(e.is_success for e in self)
-
-    @property
     def status(self):
         if self.needs_waiting:
             s = "others_busy"
@@ -204,6 +203,7 @@ def get_argument_parser():
     parser.add_argument('--travis_entry',
                         default='https://api.travis-ci.org')
     parser.add_argument('--is_master', action="store_true")
+    parser.add_argument('--master_number', type=int, default=0)
     parser.add_argument('--export_file',
                         default='.to_export_back')
     return parser
@@ -252,22 +252,25 @@ if __name__ == '__main__':
     build_id = os.getenv(TRAVIS_BUILD_ID)
     polling_interval = int(os.getenv(POLLING_INTERVAL, '5'))
     gh_token = os.getenv(GITHUB_TOKEN)
-    job_number = os.getenv(TRAVIS_JOB_NUMBER)
+    job_number = os.getenv(TRAVIS_JOB_NUMBER, '')
 
     parser = get_argument_parser()
     args = parser.parse_args()
-    is_master = args.is_master
+    is_master = args.is_master or \
+                job_number.endswith('.%s' % parser.master_number)
 
     travis_entry = args.travis_entry
 
-    if job_number is None:
+    if job_number is None or '.' not in job_number:
         # seems even for builds with only one job, this won't get here
         log.fatal("Don't use defining leader for build without matrix")
         exit(1)
     elif not is_master:
-        log.info("This is a minion")
+        log.info("This is a minion with job number %s" % job_number)
         exit(0)
 
+
+    # If we get here, we are the leader
     log.info("This is a leader")
     travis_token = get_travis_token(travis_entry, gh_token)
 
